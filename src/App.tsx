@@ -26,7 +26,7 @@ interface Student {
   angkatan: string;
 }
 
-const initialStudents = [
+const initialStudents: Student[] = [
   {
     id: uid(),
     nama: "Wiki Nurrohman",
@@ -51,7 +51,7 @@ const initialStudents = [
 ];
 
 export default function MahasiswaApp() {
-  const [students, setStudents] = useState(() => {
+  const [students, setStudents] = useState<Student[]>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       return raw ? JSON.parse(raw) : initialStudents;
@@ -62,7 +62,7 @@ export default function MahasiswaApp() {
 
   const [query, setQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [showDetail, setShowDetail] = useState<any>(null);
+  const [showDetail, setShowDetail] = useState<Student | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState({
     nama: "",
@@ -71,7 +71,7 @@ export default function MahasiswaApp() {
     angkatan: "",
   });
   const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(10);
+  const [perPage, setPerPage] = useState<number | "all">(10);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
@@ -89,20 +89,19 @@ export default function MahasiswaApp() {
       return alert("Semua field wajib diisi!");
     }
 
-    // Cegah NIM duplikat
     const isDuplicate = students.some(
       (s: Student) => s.nim === nim && s.id !== editing
     );
     if (isDuplicate) return alert("NIM sudah terdaftar!");
 
     if (editing) {
-      setStudents((s: Student[]) =>
+      setStudents((s) =>
         s
           .map((st) => (st.id === editing ? { ...st, ...form } : st))
           .sort((a, b) => a.nim.localeCompare(b.nim))
       );
     } else {
-      setStudents((s: Student[]) =>
+      setStudents((s) =>
         [...s, { id: uid(), ...form }].sort((a, b) =>
           a.nim.localeCompare(b.nim)
         )
@@ -114,10 +113,10 @@ export default function MahasiswaApp() {
 
   function handleDelete(id: string) {
     if (!confirm("Hapus data mahasiswa ini?")) return;
-    setStudents((s: Student[]) => s.filter((st) => st.id !== id));
+    setStudents((s) => s.filter((st) => st.id !== id));
   }
 
-  function startEdit(student: any) {
+  function startEdit(student: Student) {
     setEditing(student.id);
     setForm({
       nama: student.nama,
@@ -129,31 +128,29 @@ export default function MahasiswaApp() {
   }
 
   const filtered = students
-    .filter((s: Student) => {
+    .filter((s) => {
       const q = query.toLowerCase().trim();
       if (!q) return true;
       return (
         s.nama.toLowerCase().includes(q) ||
         s.nim.toLowerCase().includes(q) ||
-        (s.jurusan || "").toLowerCase().includes(q) ||
-        (s.angkatan || "").toLowerCase().includes(q)
+        s.jurusan.toLowerCase().includes(q) ||
+        s.angkatan.toLowerCase().includes(q)
       );
     })
-    .sort((a: Student, b: Student) => a.nim.localeCompare(b.nim));
+    .sort((a, b) => a.nim.localeCompare(b.nim));
 
-  // Pagination logic
+  // Pagination
   const totalPages =
-    perPage === "all" ? 1 : Math.ceil(filtered.length / (perPage as number));
-  const startIdx = perPage === "all" ? 0 : (page - 1) * (perPage as number);
+    perPage === "all" ? 1 : Math.ceil(filtered.length / perPage);
+  const startIdx = perPage === "all" ? 0 : (page - 1) * perPage;
   const paginated =
-    perPage === "all"
-      ? filtered
-      : filtered.slice(startIdx, startIdx + (perPage as number));
+    perPage === "all" ? filtered : filtered.slice(startIdx, startIdx + perPage);
 
   // EXPORT CSV
   function exportCSV() {
     const csvHeader = ["Nama", "NIM", "Jurusan", "Angkatan"];
-    const csvRows = students.map((s: Student) =>
+    const csvRows = students.map((s) =>
       [s.nama, s.nim, s.jurusan, s.angkatan].join(",")
     );
     const csvContent = [csvHeader.join(","), ...csvRows].join("\n");
@@ -174,14 +171,13 @@ export default function MahasiswaApp() {
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
       const lines = text.split(/\r?\n/).filter(Boolean);
-      const [header, ...rows] = lines;
+      const [, ...rows] = lines;
       const data = rows.map((line) => {
         const [nama, nim, jurusan, angkatan] = line.split(",");
         return { id: uid(), nama, nim, jurusan, angkatan };
       });
 
-      // Hindari duplikat NIM
-      setStudents((s: Student[]) => {
+      setStudents((s) => {
         const combined = [...s];
         for (const d of data) {
           if (!combined.some((x) => x.nim === d.nim)) {
@@ -264,7 +260,7 @@ export default function MahasiswaApp() {
               </thead>
               <tbody>
                 <AnimatePresence>
-                  {paginated.map((m, idx) => (
+                  {paginated.map((m: Student, idx: number) => (
                     <motion.tr
                       key={m.id}
                       initial={{ opacity: 0, y: 8 }}
@@ -464,7 +460,10 @@ export default function MahasiswaApp() {
                       <input
                         value={form.angkatan}
                         onChange={(e) =>
-                          setForm((f) => ({ ...f, angkatan: e.target.value }))
+                          setForm((f) => ({
+                            ...f,
+                            angkatan: e.target.value,
+                          }))
                         }
                         required
                         className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white shadow-inner"
@@ -481,18 +480,15 @@ export default function MahasiswaApp() {
                         setForm((f) => ({ ...f, jurusan: e.target.value }))
                       }
                       required
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white shadow-inner focus:ring-2 focus:ring-indigo-100"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white shadow-inner"
                     />
                   </div>
 
-                  <div className="flex justify-end gap-2 mt-6">
+                  <div className="flex justify-end gap-2 pt-4">
                     <button
                       type="button"
-                      onClick={() => {
-                        setShowForm(false);
-                        resetForm();
-                      }}
-                      className="px-4 py-2 rounded-2xl bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      onClick={() => setShowForm(false)}
+                      className="px-4 py-2 rounded-2xl bg-gray-100 hover:bg-gray-200"
                     >
                       Batal
                     </button>
